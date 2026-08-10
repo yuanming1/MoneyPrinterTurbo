@@ -564,7 +564,28 @@ def generate_subtitle(task_id, params, video_script, sub_maker, audio_file):
 
 
 def get_video_materials(task_id, params, video_terms, audio_duration):
-    if params.video_source == "local":
+    if params.video_source == "recap":
+        # 漫剧二创模式：将源视频按时间顺序切片，保持原始时间线。
+        # 核心逻辑在 app/services/recap.py，本分支只做最小切口接入。
+        logger.info("\n\n## preparing recap materials")
+        from app.services import recap
+
+        try:
+            materials = recap.prepare_recap_materials(
+                task_id, params, audio_duration
+            )
+        except ValueError as exc:
+            _mark_task_failed(task_id, "materials", str(exc))
+            return None
+        if not materials:
+            _mark_task_failed(
+                task_id,
+                "materials",
+                "no valid recap materials were generated",
+            )
+            return None
+        return materials
+    elif params.video_source == "local":
         logger.info("\n\n## preprocess local materials")
         materials = video.preprocess_video(
             materials=params.video_materials, clip_duration=params.video_clip_duration
@@ -1088,6 +1109,15 @@ def _run_pipeline(
             except video_music_provider["error_type"] as exc:
                 return _mark_task_failed(task_id, "preflight", str(exc))
 
+    # 0. 二创预处理：转写源视频内容，注入脚本生成上下文。
+    #    在生成脚本之前完成，使 AI 能基于真实视频内容写解说。
+    if params.video_source == "recap":
+        from app.services import recap
+        try:
+            recap.enrich_recap_context(task_id, params)
+        except ValueError as exc:
+            return _mark_task_failed(task_id, "script", str(exc))
+
     # 1. Generate script
     video_script = generate_script(task_id, params)
     if not video_script or "Error: " in video_script:
@@ -1108,7 +1138,7 @@ def _run_pipeline(
 
     # 2. Generate terms
     video_terms = ""
-    if params.video_source != "local":
+    if params.video_source not in ("local", "recap"):
         video_terms = generate_terms(task_id, params, video_script)
         if not video_terms:
             return _mark_task_failed(

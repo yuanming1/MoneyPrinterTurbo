@@ -405,7 +405,7 @@ def _build_restore_upload_requirements(params: Mapping) -> dict:
     素材和自定义音频依赖，并在用户重新生成前检查是否已经主动补充或替换。
     """
     return {
-        "local_materials": params.get("video_source") == "local",
+        "local_materials": params.get("video_source") in ("local", "recap"),
         "custom_audio": bool(params.get("custom_audio_file")),
         "original_voice_name": params.get("voice_name") or "",
     }
@@ -426,7 +426,7 @@ def _get_unmet_restore_upload_requirements(
 
     if (
         requirements.get("local_materials")
-        and video_source == "local"
+        and video_source in ("local", "recap")
         and not has_local_materials
     ):
         unmet.add("local_materials")
@@ -2196,9 +2196,17 @@ def _render_script_settings(panel, params):
     with panel:
         with st.container(border=True):
             st.write(tr("Video Script Settings"))
+            # 二创模式下主题可以留空，系统会根据视频内容自动生成。
+            # 视频源选择框在本输入框下方渲染，从 session state 提前读取当前值。
+            _current_source = st.session_state.get("video_source_select", "pexels")
+            subject_placeholder = (
+                tr("Recap Subject Placeholder")
+                if _current_source == "recap"
+                else tr("Video Subject Placeholder")
+            )
             params.video_subject = st.text_area(
                 tr("Video Subject"),
-                placeholder=tr("Video Subject Placeholder"),
+                placeholder=subject_placeholder,
                 height=96,
                 key="video_subject",
             ).strip()
@@ -2362,6 +2370,98 @@ def _render_script_settings(panel, params):
             )
 
 
+def _render_recap_playlist():
+    """渲染快手萤光计划素材片单。选择片名后自动切换到二创模式、填充主题并展示下载链接。"""
+    playlist_path = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)),
+        "data",
+        "kuaishou_playlist.json",
+    )
+    if not os.path.exists(playlist_path):
+        return
+
+    try:
+        with open(playlist_path, "r", encoding="utf-8") as f:
+            playlist = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return
+
+    items = playlist.get("items", [])
+    if not items:
+        return
+
+    with st.expander(tr("Recap Playlist"), expanded=False):
+        st.caption(tr("Recap Playlist Help"))
+
+        # 按剧场筛选
+        theaters = sorted(set(item.get("theater", "") for item in items))
+        theater_options = [tr("All Theaters")] + theaters
+        selected_theater_index = st.selectbox(
+            tr("Filter by Theater"),
+            options=list(range(len(theater_options))),
+            format_func=lambda i: theater_options[i],
+            key=localized_widget_key("recap_playlist_theater"),
+        )
+        theater_filter = (
+            theater_options[selected_theater_index] if selected_theater_index else ""
+        )
+
+        # 按标题搜索
+        search_query = st.text_input(
+            tr("Search Drama"),
+            key=localized_widget_key("recap_playlist_search"),
+            placeholder=tr("Search Drama Placeholder"),
+        )
+
+        # 筛选
+        filtered = []
+        for item in items:
+            if theater_filter and item.get("theater") != theater_filter:
+                continue
+            if search_query and search_query.lower() not in item.get("title", "").lower():
+                continue
+            filtered.append(item)
+
+        st.caption(
+            tr("Playlist Results").format(found=len(filtered), total=len(items))
+        )
+
+        # 片名选择：选中后填充主题、切换二创模式
+        title_options = [item["title"] for item in filtered]
+        selected_title = st.selectbox(
+            tr("Select Drama"),
+            options=[""] + title_options,
+            format_func=lambda t: tr("None Selected") if t == "" else t,
+            key=localized_widget_key("recap_playlist_select"),
+        )
+
+        if selected_title:
+            selected_item = next(
+                (item for item in filtered if item["title"] == selected_title), None
+            )
+            if selected_item:
+                paid_badge = " 🔒" if selected_item.get("paid") else ""
+                meta_parts = [
+                    selected_item.get("theater", ""),
+                    selected_item.get("type", ""),
+                ]
+                meta_parts.append(
+                    tr("Paid") if selected_item.get("paid") else tr("Free")
+                )
+                meta = " · ".join(p for p in meta_parts if p)
+
+                url = selected_item.get("url", "")
+                password = selected_item.get("password", "")
+
+                st.markdown(f"**{selected_title}{paid_badge}**")
+                st.markdown(f"<small>{meta}</small>", unsafe_allow_html=True)
+                if url:
+                    st.markdown(f"📥 [{tr('Download Material')}]({url})")
+                if password:
+                    st.code(f"{tr('Extraction Code')}: {password}")
+                st.info(tr("Recap Playlist Selected Help"))
+
+
 def _render_video_settings(panel, params):
     """渲染视频设置并返回本次选择的本地素材。"""
     uploaded_files = []
@@ -2377,6 +2477,7 @@ def _render_video_settings(panel, params):
                 (tr("Pixabay"), "pixabay"),
                 (tr("Coverr"), "coverr"),
                 (tr("Local file"), "local"),
+                (tr("Recap"), "recap"),
             ]
 
             saved_video_source_name = config.app.get("video_source", "pexels")
@@ -2392,11 +2493,16 @@ def _render_video_settings(panel, params):
             )
             _set_runtime_config("app", "video_source", params.video_source)
 
-            if params.video_source == "local":
+            if params.video_source in ("local", "recap"):
                 # Streamlit 的文件类型校验对扩展名大小写敏感，这里同时放行大小写两种形式。
                 local_file_types = sorted(
                     extension.removeprefix(".")
                     for extension in LOCAL_MATERIAL_EXTENSIONS
+                )
+                uploader_help = (
+                    tr("Recap Upload Help")
+                    if params.video_source == "recap"
+                    else None
                 )
                 uploaded_files = st.file_uploader(
                     tr("Upload Local Files"),
@@ -2404,6 +2510,7 @@ def _render_video_settings(panel, params):
                     + [file_type.upper() for file_type in local_file_types],
                     accept_multiple_files=True,
                     key="local_video_materials_uploader",
+                    help=uploader_help,
                 )
 
             # 文案顺序匹配会从关键词生成到最终合成全程保持叙事顺序，因此开启时
@@ -3874,11 +3981,13 @@ def _render_generation_controls(
             subject=params.video_subject or params.video_script or task_id,
         )
         if not params.video_subject and not params.video_script:
-            _remove_active_generation_task(task_id)
-            st.error(tr("Video Script and Subject Cannot Both Be Empty"))
-            st.stop()
+            # 二创模式下有源视频即可，主题和文案都会从视频内容自动生成。
+            if params.video_source != "recap" or not has_local_materials:
+                _remove_active_generation_task(task_id)
+                st.error(tr("Video Script and Subject Cannot Both Be Empty"))
+                st.stop()
 
-        if params.video_source not in ["pexels", "pixabay", "coverr", "local"]:
+        if params.video_source not in ["pexels", "pixabay", "coverr", "local", "recap"]:
             _remove_active_generation_task(task_id)
             st.error(tr("Please Select a Valid Video Source"))
             st.stop()
@@ -3922,7 +4031,7 @@ def _render_generation_controls(
             st.error(tr("ElevenLabs API Key Required"))
             st.stop()
 
-        if params.video_source == "local" and not has_local_materials:
+        if params.video_source in ("local", "recap") and not has_local_materials:
             # 本地素材为空时继续执行会先产生 TTS/字幕，最后才在素材预处理阶段失败。
             # 在任务启动前拦截，可以避免无意义的 API 调用和中间文件。
             _remove_active_generation_task(task_id)
@@ -4018,7 +4127,7 @@ def _render_generation_controls(
             # 将已上传并保存到本地的视频素材写入会话，供后续只改文案时直接复用。
             st.session_state["local_video_materials"] = persisted_local_materials
         elif (
-            params.video_source == "local" and st.session_state["local_video_materials"]
+            params.video_source in ("local", "recap") and st.session_state["local_video_materials"]
         ):
             # 当用户没有重新上传文件时，复用最近一次已经保存到磁盘的本地素材列表。
             params.video_materials = []
@@ -4086,6 +4195,10 @@ def _render_application():
     restore_succeeded = st.session_state.pop("task_restore_succeeded", False)
     if restore_applied or restore_succeeded:
         st.success(tr("Task Configuration Loaded"))
+
+    # 素材片单：选择片名后自动切换到二创模式、填充主题并展示下载链接。
+    # 放在主表单之前，让 session_state 变更能被下游控件直接拾取。
+    _render_recap_playlist()
 
     with st.container(key="main_settings_grid"):
         panel = st.columns(4)
