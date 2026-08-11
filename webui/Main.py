@@ -36,6 +36,7 @@ from app.models.llm_provider import (
 )
 from app.models.schema import (
     MaterialInfo,
+    RecapHookStrategy,
     VideoAspect,
     VideoConcatMode,
     VideoParams,
@@ -1408,6 +1409,15 @@ def _render_generation_logs(task_id):
     st.code("\n".join(log_records))
 
 
+def _recap_experiment_variant_rows(experiment):
+    variants = (experiment or {}).get("variants") or {}
+    return [
+        {"strategy": strategy, **(variants.get(strategy) or {})}
+        for strategy in ("suspense", "conflict", "emotion")
+        if strategy in variants
+    ]
+
+
 def _render_generation_task_snapshot(task_id, task):
     """根据状态存储中的快照渲染进度、失败原因或最终成片。"""
     if not task:
@@ -1440,6 +1450,33 @@ def _render_generation_task_snapshot(task_id, task):
         return
 
     st.success(tr("Video Generation Completed"))
+    experiment = task.get("recap_experiment")
+    if isinstance(experiment, Mapping):
+        for row in _recap_experiment_variant_rows(experiment):
+            strategy = row["strategy"]
+            if row.get("status") == "completed" and row.get("video"):
+                st.caption(
+                    f"{tr('Recap Hook Variant')}: "
+                    f"{tr(f'Recap Hook Strategy {strategy.title()}')}"
+                )
+                st.video(row["video"])
+            elif row.get("status") == "unavailable":
+                st.warning(f"{tr('Recap Hook Variant')}: {row.get('reason', '')}")
+        manifest_path = experiment.get("manifest_path")
+        if manifest_path:
+            try:
+                safe_manifest = file_security.resolve_path_within_directory(
+                    utils.task_dir(task_id), manifest_path
+                )
+                with open(safe_manifest, "rb") as manifest_file:
+                    st.download_button(
+                        tr("Download Recap Hook Experiment Manifest"), data=manifest_file,
+                        file_name="experiment.json", mime="application/json",
+                        key=f"download_experiment_manifest_{task_id}",
+                        icon=":material/download:", on_click="ignore",
+                    )
+            except (OSError, ValueError):
+                logger.warning(f"experiment manifest is unavailable: task_id={task_id}")
     for warning in task.get("warnings") or []:
         if isinstance(warning, Mapping) and warning.get("code") == "sonilo_bgm_failed":
             st.warning(
@@ -2512,6 +2549,24 @@ def _render_video_settings(panel, params):
                     key="local_video_materials_uploader",
                     help=uploader_help,
                 )
+            if params.video_source == "recap":
+                params.recap_hook_experiment_enabled = st.checkbox(
+                    tr("Enable Recap Hook Experiment"),
+                    key="recap_hook_experiment_enabled",
+                )
+                selected_strategies = st.multiselect(
+                    tr("Recap Hook Strategies"),
+                    options=[strategy.value for strategy in RecapHookStrategy],
+                    default=[strategy.value for strategy in params.recap_hook_strategies],
+                    format_func=lambda strategy: tr(
+                        f"Recap Hook Strategy {strategy.title()}"
+                    ),
+                    key="recap_hook_strategies",
+                    disabled=not params.recap_hook_experiment_enabled,
+                )
+                params.recap_hook_strategies = [
+                    RecapHookStrategy(strategy) for strategy in selected_strategies
+                ]
 
             # 文案顺序匹配会从关键词生成到最终合成全程保持叙事顺序，因此开启时
             # 顺序拼接是唯一符合实际执行逻辑的选项。同步控件值可避免界面仍显示
