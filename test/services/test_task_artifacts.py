@@ -96,6 +96,22 @@ class TestTaskArtifacts(unittest.TestCase):
         self.assertEqual(target.read_text(encoding="utf-8"), "{invalid-json")
         self.assertTrue(warning.called)
 
+    def test_write_recap_source_metadata_is_atomic_and_keeps_only_provenance(self):
+        snapshot = {
+            "catalog_id": "qingque-kuaishou",
+            "item_id": "qingque-kuaishou:001",
+            "title": "Alpha",
+            "rights_confirmed": True,
+        }
+
+        task_artifacts.write_recap_source_metadata("task-source", snapshot)
+
+        payload = json.loads(
+            (self.task_dir / "source_metadata.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(payload, snapshot)
+        self.assertEqual(list(self.task_dir.glob(".source_metadata.json.*.tmp")), [])
+
 
 if __name__ == "__main__":
     unittest.main()

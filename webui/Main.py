@@ -36,6 +36,7 @@ from app.models.llm_provider import (
 )
 from app.models.schema import (
     MaterialInfo,
+    RecapCatalogSelection,
     RecapHookStrategy,
     VideoAspect,
     VideoConcatMode,
@@ -43,7 +44,7 @@ from app.models.schema import (
     VideoTransitionMode,
 )
 from app.services import bgm as bgm_service
-from app.services import cache_manager, llm, video, voice, webui_task
+from app.services import cache_manager, llm, recap_catalog, video, voice, webui_task
 from app.services import elevenlabs_music as elevenlabs_music_service
 from app.services import sonilo as sonilo_service
 from app.services import state as sm
@@ -2499,6 +2500,132 @@ def _render_recap_playlist():
                 st.info(tr("Recap Playlist Selected Help"))
 
 
+def _render_recap_catalog():
+    """Render locally validated source catalogs for the recap workflow."""
+    try:
+        catalogs = recap_catalog.load_catalogs()
+    except ValueError as exc:
+        logger.warning(f"failed to load recap catalogs: {exc}")
+        st.warning(tr("Recap Catalog Unavailable"))
+        return
+
+    if not catalogs:
+        return
+
+    with st.expander(tr("Recap Catalog"), expanded=False):
+        catalog_ids = sorted(catalogs)
+        selected_catalog_id = st.selectbox(
+            tr("Catalog"),
+            options=catalog_ids,
+            format_func=lambda catalog_id: catalogs[catalog_id].title,
+            key=localized_widget_key("recap_catalog"),
+        )
+        catalog_items = recap_catalog.list_items(selected_catalog_id)
+
+        content_types = [""] + sorted({item.content_type for item in catalog_items})
+        selected_content_type = st.selectbox(
+            tr("Content Type"),
+            options=content_types,
+            format_func=lambda value: (
+                tr("All Content Types")
+                if not value
+                else tr("Animated" if value == "animated" else "Live Short Drama")
+            ),
+            key=localized_widget_key("recap_catalog_content_type"),
+        )
+        theater_options = [""] + sorted({item.theater for item in catalog_items})
+        selected_theater = st.selectbox(
+            tr("Filter by Theater"),
+            options=theater_options,
+            format_func=lambda value: tr("All Theaters") if not value else value,
+            key=localized_widget_key("recap_catalog_theater"),
+        )
+        selected_access = st.selectbox(
+            tr("Access"),
+            options=["", "free", "paid"],
+            format_func=lambda value: (
+                tr("All Access")
+                if not value
+                else tr("Free") if value == "free" else tr("Paid")
+            ),
+            key=localized_widget_key("recap_catalog_access"),
+        )
+        search_query = st.text_input(
+            tr("Search Drama"),
+            key=localized_widget_key("recap_catalog_search"),
+            placeholder=tr("Search Drama Placeholder"),
+        ).strip().lower()
+
+        filtered_items = [
+            item
+            for item in catalog_items
+            if (not selected_content_type or item.content_type == selected_content_type)
+            and (not selected_theater or item.theater == selected_theater)
+            and (not selected_access or item.access == selected_access)
+            and (not search_query or search_query in item.title.lower())
+        ]
+        st.caption(
+            tr("Playlist Results").format(
+                found=len(filtered_items), total=len(catalog_items)
+            )
+        )
+        if not filtered_items:
+            return
+
+        item_ids = [item.id for item in filtered_items]
+        selected_item_id = st.selectbox(
+            tr("Select Drama"),
+            options=item_ids,
+            format_func=lambda item_id: recap_catalog.resolve_selection(
+                selected_catalog_id, item_id
+            ).title,
+            key=localized_widget_key("recap_catalog_item"),
+        )
+        selected_item = recap_catalog.resolve_selection(
+            selected_catalog_id, selected_item_id
+        )
+        content_label = tr(
+            "Animated"
+            if selected_item.content_type == "animated"
+            else "Live Short Drama"
+        )
+        access_label = tr("Free") if selected_item.access == "free" else tr("Paid")
+        st.markdown(f"**{selected_item.title}**")
+        st.caption(" | ".join([selected_item.theater, content_label, access_label]))
+        st.link_button(tr("Download Material"), selected_item.download_url)
+        if selected_item.download_password:
+            st.code(f"{tr('Extraction Code')}: {selected_item.download_password}")
+
+        if selected_item.rights_status == "blocked":
+            st.error(tr("Blocked Recap Source"))
+            return
+
+        rights_confirmed = selected_item.rights_status == "verified"
+        if not rights_confirmed:
+            st.warning(tr("Recap Source Requires Confirmation"))
+            rights_confirmed = st.checkbox(
+                tr("Confirm Recap Rights"),
+                key=localized_widget_key(
+                    f"recap_catalog_rights_{selected_catalog_id}_{selected_item.id}"
+                ),
+            )
+
+        if st.button(
+            tr("Use Recap Source"),
+            key=localized_widget_key("use_recap_catalog_source"),
+            disabled=not rights_confirmed,
+            use_container_width=True,
+        ):
+            st.session_state["video_source_select"] = "recap"
+            st.session_state["video_subject"] = selected_item.title
+            st.session_state["recap_catalog_selection"] = {
+                "catalog_id": selected_catalog_id,
+                "item_id": selected_item.id,
+                "rights_confirmed": rights_confirmed,
+            }
+            st.rerun()
+
+
 def _render_video_settings(panel, params):
     """渲染视频设置并返回本次选择的本地素材。"""
     uploaded_files = []
@@ -4253,7 +4380,7 @@ def _render_application():
 
     # 素材片单：选择片名后自动切换到二创模式、填充主题并展示下载链接。
     # 放在主表单之前，让 session_state 变更能被下游控件直接拾取。
-    _render_recap_playlist()
+    _render_recap_catalog()
 
     with st.container(key="main_settings_grid"):
         panel = st.columns(4)
@@ -4263,6 +4390,14 @@ def _render_application():
     right_panel = panel[3]
 
     params = VideoParams(video_subject="")
+    stored_recap_catalog_selection = st.session_state.get("recap_catalog_selection")
+    if stored_recap_catalog_selection:
+        try:
+            params.recap_catalog_selection = RecapCatalogSelection.model_validate(
+                stored_recap_catalog_selection
+            )
+        except ValueError:
+            st.session_state.pop("recap_catalog_selection", None)
     params.match_materials_to_script = bool(
         st.session_state.get("match_materials_to_script", False)
     )

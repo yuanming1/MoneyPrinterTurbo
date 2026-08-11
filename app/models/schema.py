@@ -37,6 +37,19 @@ class RecapHookStrategy(str, Enum):
     emotion = "emotion"
 
 
+class RecapCatalogContentType(str, Enum):
+    animated = "animated"
+    live_short_drama = "live_short_drama"
+
+
+class RecapCatalogSelection(BaseModel):
+    """客户端提交的二创目录选择；服务端会重新解析目录条目。"""
+
+    catalog_id: str = Field(min_length=1, max_length=128)
+    item_id: str = Field(min_length=1, max_length=256)
+    rights_confirmed: bool = False
+
+
 class VideoAspect(str, Enum):
     landscape = "16:9"
     portrait = "9:16"
@@ -96,6 +109,7 @@ class VideoParams(BaseModel):
     recap_hook_strategies: list[RecapHookStrategy] = Field(
         default_factory=lambda: list(RecapHookStrategy)
     )
+    recap_catalog_selection: Optional[RecapCatalogSelection] = None
 
     video_source: Optional[str] = "pexels"
     video_materials: Optional[List[MaterialInfo]] = (

@@ -61,6 +61,12 @@ def write_script_data(task_id: str, payload: Mapping[str, Any]) -> None:
     _write_json_atomic(_script_file(task_id), payload)
 
 
+def write_recap_source_metadata(task_id: str, payload: Mapping[str, Any]) -> None:
+    """原子写入已验证的二创目录来源快照。"""
+    target = Path(utils.task_dir(task_id)) / "source_metadata.json"
+    _write_json_atomic(target, payload)
+
+
 def patch_script_data(task_id: str, **updates: Any) -> bool:
     """
     在保留原有字段的前提下补充任务清单，失败时返回 ``False``。

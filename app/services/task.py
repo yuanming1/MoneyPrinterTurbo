@@ -20,6 +20,7 @@ from app.services import (
     elevenlabs_music,
     llm,
     material,
+    recap_catalog,
     sonilo,
     subtitle,
     task_artifacts,
@@ -336,6 +337,25 @@ def save_script_data(task_id, video_script, video_terms, params):
         "params": params,
     }
     task_artifacts.write_script_data(task_id, script_data)
+
+
+def prepare_recap_catalog_source_metadata(task_id: str, params: VideoParams) -> str | None:
+    """验证目录选择并在处理源视频前保存可追溯的来源快照。"""
+    if params.video_source != "recap" or not params.recap_catalog_selection:
+        return None
+
+    try:
+        snapshot = recap_catalog.validate_selection(params.recap_catalog_selection)
+        task_artifacts.write_recap_source_metadata(task_id, snapshot)
+    except ValueError as exc:
+        return str(exc)
+    except Exception as exc:
+        logger.exception(
+            "failed to persist recap catalog provenance: "
+            f"task_id={task_id}, error={type(exc).__name__}, detail={exc}"
+        )
+        return "failed to persist recap catalog source metadata"
+    return None
 
 
 def resolve_custom_audio_file(task_id: str, custom_audio_file: str | None) -> str:
@@ -1216,6 +1236,9 @@ def _run_pipeline(
     # 0. 二创预处理：转写源视频内容，注入脚本生成上下文。
     #    在生成脚本之前完成，使 AI 能基于真实视频内容写解说。
     if params.video_source == "recap":
+        catalog_error = prepare_recap_catalog_source_metadata(task_id, params)
+        if catalog_error:
+            return _mark_task_failed(task_id, "preflight", catalog_error)
         from app.services import recap
         try:
             recap.enrich_recap_context(task_id, params)

@@ -1,0 +1,759 @@
+{
+    "schema_version":  1,
+    "catalog_id":  "qingque-kuaishou",
+    "title":  "快手萤光计划短剧\u0026漫剧达人二创片单",
+    "source_url":  "https://docs.qingque.cn/s/home/eZQBGcZW8Gc2gdfFbwROXAN_v",
+    "refreshed_at":  "2026-08-10",
+    "items":  [
+                  {
+                      "id":  "qingque-kuaishou:001",
+                      "title":  "小小年岁平安顺遂",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "爆爆动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1sb-GOgbqdjk1cL0MZU7QJQ?pwd=pu2e",
+                                       "password":  "pu2e"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:002",
+                      "title":  "薄礼转身艳阳天2",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "花生原创剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1PAJlRZyN8YwoCQZoIIAESg?pwd=mfbb",
+                                       "password":  "mfbb"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:003",
+                      "title":  "便利店里的分寸感",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "欣妍动漫",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1GPw99FGPWAGYS3eIxJRtmg?pwd=ndgi",
+                                       "password":  "ndgi"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:004",
+                      "title":  "庸途登高台1",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "爆爆动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1OH7XNX0QUvos-uA_h69HPA?pwd=7abt",
+                                       "password":  "7abt"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:005",
+                      "title":  "魔主逆命",
+                      "content_type":  "animated",
+                      "access":  "paid",
+                      "theater":  "湖岸漫剧",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/15mhgJOEPQKdo7GqEqJg-NQ?pwd=8t7f",
+                                       "password":  "8t7f"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:006",
+                      "title":  "余烬之后见春风",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "欣妍动漫",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1xJuuKBcEoqcobaY8Ml0_OA?pwd=v51b",
+                                       "password":  "v51b"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:007",
+                      "title":  "棋诛",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "次元动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/10_aDRr-LhHBnxxxehCQx3A?pwd=gtwb",
+                                       "password":  "gtwb"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:008",
+                      "title":  "山楂红了",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "爆爆动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1uCJgh3tI-zF1I5P7VxEWvw?pwd=948a",
+                                       "password":  "948a"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:009",
+                      "title":  "荒陵秘闻1",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "湖岸漫剧",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1MzrJ0YaqOXQ0gZcjSeBfCg?pwd=8n8v",
+                                       "password":  "8n8v"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:010",
+                      "title":  "替嫁孤女被宠上天",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "糯柒剧院",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1RDGVMtTnPBqYj_DqaLGFdg?pwd=6666",
+                                       "password":  "6666"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:011",
+                      "title":  "倾家县令",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "砚朔剧院",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1eC9vTx1V3m88TYx8MtOBKQ",
+                                       "password":  "6666"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:012",
+                      "title":  "错付与归期",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "次元动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1KpaWSgQr9LoTNLguyK2LYQ?pwd=a41e",
+                                       "password":  "a41e"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:013",
+                      "title":  "国宴厨神隐身帮厨",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "欣妍动漫",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1cEETC7EayPVVLJ62oXqEzQ?pwd=ynen",
+                                       "password":  "ynen"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:014",
+                      "title":  "巨蟒报恩后她逆风翻盘",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "欣妍动漫",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1-MirgXbsLv7YXjrvWHd-oA?pwd=75eh",
+                                       "password":  "75eh"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:015",
+                      "title":  "生日宴后，我的马甲藏不住了",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "次元动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1jmLPQO03_95Wop2S_3NXbA?pwd=cmf3",
+                                       "password":  "cmf3"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:016",
+                      "title":  "他把荒山变金山",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "次元动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1DLqXt97lTw4fxltJS8vRRg?pwd=eizq",
+                                       "password":  "eizq"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:017",
+                      "title":  "泥塘里开出金珠花",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "爆爆动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1nWRgfOrGhh-vQgsw05VNIg?pwd=xvyi",
+                                       "password":  "xvyi"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:018",
+                      "title":  "流放小厨娘不好惹",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "欣妍动漫",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1ggrxCwSZ6AqybRXFdqXwbg?pwd=8cn3",
+                                       "password":  "8cn3"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:019",
+                      "title":  "重生当鱼钓佬破防了",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "桃子剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1IxZkqDLuZBpROrOAofuFow?pwd=euyv",
+                                       "password":  "euyv"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:020",
+                      "title":  "褪去平凡身份，我是豪门继承人1",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "湖岸漫剧",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1K1iKXedspttFvdDiKFw83w?pwd=p6us",
+                                       "password":  "p6us"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:021",
+                      "title":  "五年离散，错过即是终身",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "猫幼",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1Rsu7Rq6IwuKOMeddn3jaLA?pwd=9999",
+                                       "password":  "9999"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:022",
+                      "title":  "贤妻伴我登峰路",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "欣妍动漫",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1F9z7quEEIv8bG8kL4LzoXw?pwd=u51j",
+                                       "password":  "u51j"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:023",
+                      "title":  "远山烟火治愈旧爱1",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "湖岸漫剧",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1aJWM9QpAnSs5pTYdwHp6Sg?pwd=hwpf",
+                                       "password":  "hwpf"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:024",
+                      "title":  "清醒后我看透人心",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "欣妍动漫",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1aMS-aV2mzCQ7wycvBlzcqw?pwd=64cd",
+                                       "password":  "64cd"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:025",
+                      "title":  "盘山古道 热血人生路",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "欣妍动漫",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1tysO03_KT_tj8Lry8aze6g?pwd=8yyt",
+                                       "password":  "8yyt"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:026",
+                      "title":  "盖世霸主甘愿守门",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "爆爆动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/11y4QywvrJnPrhzOKkZDNyQ?pwd=8di6",
+                                       "password":  "8di6"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:027",
+                      "title":  "师兄不再苟",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "漫剧杂货铺",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/18TstiFgdWdTVgk21txzSBg?pwd=mm4z",
+                                       "password":  "mm4z"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:028",
+                      "title":  "目不能视却统万灵",
+                      "content_type":  "animated",
+                      "access":  "paid",
+                      "theater":  "爆爆动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/16Lx3Z7FLnShMmBEHGf0ZZw?pwd=xffp",
+                                       "password":  "xffp"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:029",
+                      "title":  "皇后靠生意逆风翻盘",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "欣妍动漫",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1e7veeJ-_FwodNFcM9eOZlA?pwd=y7k6",
+                                       "password":  "y7k6"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:030",
+                      "title":  "烽火半生缘",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "爆爆动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1FL_LJhywPfoHsiGGTKrCfQ?pwd=pi3t",
+                                       "password":  "pi3t"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:031",
+                      "title":  "古陵探秘：万年强者的悠闲日常",
+                      "content_type":  "animated",
+                      "access":  "paid",
+                      "theater":  "湖岸漫剧",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1272eyTnKcavxY-vp95XbJw?pwd=j4fq",
+                                       "password":  "j4fq"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:032",
+                      "title":  "牧野风云录",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "爆爆动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1jfmqjio5jx83-oPWyQIkTw?pwd=vwp7",
+                                       "password":  "vwp7"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:033",
+                      "title":  "弃妇归来：设计天才的逆袭",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "奇遇唐小三",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1XYOOI9V2un2YiyV8cf40vg?pwd=1ib2",
+                                       "password":  "1ib2"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:034",
+                      "title":  "微服暗访穷县",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "沨融短剧",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1gShCr1Kw6dHca48T6wjptQ?pwd=mytv",
+                                       "password":  "mytv"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:035",
+                      "title":  "别后经年，葬于寒冬",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "次元动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1mMbH2pmA7d2bjaXE1E3mnw?pwd=e4qv",
+                                       "password":  "e4qv"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:036",
+                      "title":  "前尘旧恨皆成烟",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "爆爆动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1DW5QBSvjmioomyXkO5n0pQ?pwd=3iph",
+                                       "password":  "3iph"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:037",
+                      "title":  "重回1978赶山致富",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "欣妍动漫",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1V4yIBu-zfcnRw_3N9TQJuQ?pwd=8u7d",
+                                       "password":  "8u7d"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:038",
+                      "title":  "捡个主母当亲娘",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "次元动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1lghCU5DxharvKmk-oVzlDw?pwd=f41r",
+                                       "password":  "f41r"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:039",
+                      "title":  "年终奖缩水后我当场离职",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "爆爆动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1TI_hLbp2HfNCPRh1MzyLzA?pwd=g82k",
+                                       "password":  "g82k"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:040",
+                      "title":  "关机12小时后公司慌了",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "欣妍动漫",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1I1kvFbu5ZT3x_siRUGG2xg?pwd=kqen",
+                                       "password":  "kqen"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:041",
+                      "title":  "被裁那晚我带走了30亿",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "奇遇唐小三",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1uLqLlxCP1GAQiOXsAlakng?pwd=y3un",
+                                       "password":  "y3un"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:042",
+                      "title":  "灵前风起时",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "次元动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1iqpYDCvGN8VzbT8ShOAAcg?pwd=1iug",
+                                       "password":  "1iug"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:043",
+                      "title":  "坠井后我在两界逆袭创业",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "爆爆动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/15NJJMKHUMOYApgJ9izxgvQ?pwd=iahe",
+                                       "password":  "iahe"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:044",
+                      "title":  "常年付出反被责",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "爆爆动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1njCzE8SpsY7qiEL8IG_PNA?pwd=yw5y",
+                                       "password":  "yw5y"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:045",
+                      "title":  "良缘天定：我和齐总的甜蜜日常",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "次元动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1bHDsYTeWD8EYxG8IcOkqzQ?pwd=cai2",
+                                       "password":  "cai2"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:046",
+                      "title":  "离职之后全公司乱套了",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "放松剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/15INRV1IKyN-e70ktf0bDcA?pwd=sgct",
+                                       "password":  "sgct"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:047",
+                      "title":  "退婚后我用彩礼买下荒地",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "欣妍动漫",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/121Vc39dTxzscW2aOhFI4Nw?pwd=ruhp",
+                                       "password":  "ruhp"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:048",
+                      "title":  "善意终有回响2",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "欣妍动漫",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/18skSdLIHEVhI3CI2Qht6Hw?pwd=677d",
+                                       "password":  "677d"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:049",
+                      "title":  "桃花小仙尊踏云来",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "爆爆动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1nedHLyKApkk_MocL8fWJQw?pwd=crm6",
+                                       "password":  "crm6"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  },
+                  {
+                      "id":  "qingque-kuaishou:050",
+                      "title":  "吞龙之力王者回归",
+                      "content_type":  "animated",
+                      "access":  "free",
+                      "theater":  "爆爆动漫剧场",
+                      "download":  {
+                                       "provider":  "baidu_pan",
+                                       "url":  "https://pan.baidu.com/s/1g65XR075BnNxBIsE7afE3g?pwd=4pmv",
+                                       "password":  "4pmv"
+                                   },
+                      "rights":  {
+                                     "status":  "requires_confirmation"
+                                 }
+                  }
+              ]
+}
