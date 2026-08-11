@@ -1091,6 +1091,19 @@ def generate_recap_hook_experiment(task_id, params, stop_at):
     )
     variants = {}
     audio_variants = {}
+    source_path = recap._get_first_source_path(params)
+    manifest_path = path.join(utils.task_dir(task_id), "experiment.json")
+
+    def write_manifest():
+        manifest = recap_hooks.build_experiment_manifest(
+            task_id, source_path, shared_body,
+            {"observations_path": str(analysis.observations_path)}, variants,
+        )
+        temporary_path = f"{manifest_path}.tmp"
+        with open(temporary_path, "w", encoding="utf-8") as output:
+            json.dump(manifest, output, ensure_ascii=False, indent=2, allow_nan=False)
+        os.replace(temporary_path, manifest_path)
+
     for strategy in params.recap_hook_strategies:
         candidate = analysis.candidates.get(strategy)
         if candidate is None:
@@ -1138,17 +1151,9 @@ def generate_recap_hook_experiment(task_id, params, stop_at):
             }
         except Exception as exc:
             variants[strategy] = {"status": "failed", "reason": str(exc), "candidate": candidate}
+        write_manifest()
 
-    source_path = recap._get_first_source_path(params)
-    manifest = recap_hooks.build_experiment_manifest(
-        task_id, source_path, shared_body,
-        {"observations_path": str(analysis.observations_path)}, variants,
-    )
-    manifest_path = path.join(utils.task_dir(task_id), "experiment.json")
-    temporary_path = f"{manifest_path}.tmp"
-    with open(temporary_path, "w", encoding="utf-8") as output:
-        json.dump(manifest, output, ensure_ascii=False, indent=2, allow_nan=False)
-    os.replace(temporary_path, manifest_path)
+    write_manifest()
     completed = [item["video"] for item in variants.values() if item.get("status") == "completed"]
     result = {
         "videos": completed,
