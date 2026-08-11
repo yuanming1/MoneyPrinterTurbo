@@ -1,3 +1,4 @@
+import json
 import math
 import os
 import re
@@ -436,7 +437,7 @@ def _resolve_reusable_voice_preview(
     return preview_file, math.ceil(duration), sub_maker
 
 
-def generate_audio(task_id, params, video_script, voice_preview=None):
+def generate_audio(task_id, params, video_script, voice_preview=None, output_basename=None):
     """
     Generate audio for the video script.
     If a custom audio file is provided, it will be used directly.
@@ -474,7 +475,8 @@ def generate_audio(task_id, params, video_script, voice_preview=None):
             return reusable_preview
 
         logger.info("no custom audio file provided, using TTS to generate audio.")
-        audio_file = path.join(utils.task_dir(task_id), "audio.mp3")
+        audio_name = output_basename or "audio"
+        audio_file = path.join(utils.task_dir(task_id), f"{audio_name}.mp3")
         sub_maker = voice.tts(
             text=video_script,
             voice_name=voice.parse_voice_name(params.voice_name),
@@ -505,7 +507,7 @@ def generate_audio(task_id, params, video_script, voice_preview=None):
             return None, None, None
         return custom_audio_file, audio_duration, None
 
-def generate_subtitle(task_id, params, video_script, sub_maker, audio_file):
+def generate_subtitle(task_id, params, video_script, sub_maker, audio_file, output_basename=None):
     '''
     Generate subtitle for the video script.
     If subtitle generation is disabled or no subtitle maker is provided, it will return an empty string.
@@ -517,7 +519,8 @@ def generate_subtitle(task_id, params, video_script, sub_maker, audio_file):
     if not params.subtitle_enabled:
         return ""
 
-    subtitle_path = path.join(utils.task_dir(task_id), "subtitle.srt")
+    subtitle_name = output_basename or "subtitle"
+    subtitle_path = path.join(utils.task_dir(task_id), f"{subtitle_name}.srt")
     subtitle_provider = config.app.get("subtitle_provider", "edge").strip().lower()
     logger.info(f"\n\n## generating subtitle, provider: {subtitle_provider}")
 
@@ -626,8 +629,21 @@ def get_video_materials(task_id, params, video_terms, audio_duration):
         return downloaded_videos
 
 
+def _video_output_paths(task_id, index, output_stem=None):
+    if output_stem:
+        return (
+            path.join(utils.task_dir(task_id), f"combined-{output_stem}.mp4"),
+            path.join(utils.task_dir(task_id), f"final-{output_stem}.mp4"),
+        )
+    return (
+        path.join(utils.task_dir(task_id), f"combined-{index}.mp4"),
+        path.join(utils.task_dir(task_id), f"final-{index}.mp4"),
+    )
+
+
 def generate_final_videos(
-    task_id, params, downloaded_videos, audio_file, subtitle_path, audio_duration
+    task_id, params, downloaded_videos, audio_file, subtitle_path, audio_duration,
+    output_stem=None,
 ):
     final_video_paths = []
     combined_video_paths = []
@@ -650,8 +666,8 @@ def generate_final_videos(
     _progress = 50
     for i in range(params.video_count):
         index = i + 1
-        combined_video_path = path.join(
-            utils.task_dir(task_id), f"combined-{index}.mp4"
+        combined_video_path, final_video_path = _video_output_paths(
+            task_id, index, output_stem
         )
         logger.info(f"\n\n## combining video: {index} => {combined_video_path}")
         video.combine_videos(
@@ -668,8 +684,6 @@ def generate_final_videos(
 
         _progress += 50 / params.video_count / 2
         sm.state.update_task(task_id, progress=_progress)
-
-        final_video_path = path.join(utils.task_dir(task_id), f"final-{index}.mp4")
 
         # 视频配乐模式先明确禁用默认 BGM 解析，避免旧任务残留的 bgm_file 被
         # 误用。只有音量大于 0 才生成代理并调用付费 API；0 音量统一跳过。
@@ -1061,6 +1075,91 @@ def _schedule_cross_post(
     return None
 
 
+def generate_recap_hook_experiment(task_id, params, stop_at):
+    """Generate source-grounded recap hook variants without cross-posting."""
+    if getattr(params, "custom_audio_file", None):
+        raise ValueError("custom audio is not supported for recap hook experiments")
+    from app.services import recap, recap_hooks
+
+    analysis = recap.analyze_hook_experiment(task_id, params)
+    shared_body = generate_script(task_id, params)
+    if not shared_body or "Error: " in shared_body:
+        raise ValueError("failed to generate recap experiment shared body")
+
+    transcript_context = "\n".join(
+        str(item.get("text", "")) for item in analysis.transcript
+    )
+    variants = {}
+    audio_variants = {}
+    for strategy in params.recap_hook_strategies:
+        candidate = analysis.candidates.get(strategy)
+        if candidate is None:
+            variants[strategy] = {
+                "status": "unavailable",
+                "reason": analysis.unavailable.get(strategy, "no source candidate"),
+            }
+            continue
+        hook = llm._generate_response(
+            recap_hooks.build_hook_prompt(strategy, candidate, transcript_context)
+        )
+        script = f"{hook.strip()}\n{shared_body.strip()}"
+        audio_file, duration, sub_maker = generate_audio(
+            task_id, params, script, output_basename=f"hook-{strategy.value}"
+        )
+        if not audio_file:
+            variants[strategy] = {"status": "failed", "reason": "audio generation failed"}
+            continue
+        audio_variants[strategy] = (script, audio_file, duration, sub_maker)
+        variants[strategy] = {"status": "pending", "script": script, "candidate": candidate}
+
+    materials = recap.prepare_hook_variant_materials(
+        task_id, params, analysis, shared_body,
+        max((item[2] for item in audio_variants.values()), default=0),
+    ) if audio_variants else {}
+    for strategy, (script, audio_file, duration, sub_maker) in audio_variants.items():
+        candidate = analysis.candidates[strategy]
+        try:
+            variant_params = params.model_copy(deep=True)
+            variant_params.video_count = 1
+            variant_params.video_concat_mode = VideoConcatMode.sequential
+            stem = f"hook-{strategy.value}"
+            subtitle_path = generate_subtitle(
+                task_id, variant_params, script, sub_maker, audio_file, output_basename=stem
+            )
+            final_paths, _, _ = generate_final_videos(
+                task_id, variant_params, materials[strategy], audio_file, subtitle_path,
+                duration, output_stem=stem,
+            )
+            if not final_paths:
+                raise ValueError("video generation failed")
+            variants[strategy] = {
+                "status": "completed", "video": final_paths[0], "script": script,
+                "hook_range": [candidate.start, candidate.end], "candidate": candidate,
+            }
+        except Exception as exc:
+            variants[strategy] = {"status": "failed", "reason": str(exc), "candidate": candidate}
+
+    source_path = recap._get_first_source_path(params)
+    manifest = recap_hooks.build_experiment_manifest(
+        task_id, source_path, shared_body,
+        {"observations_path": str(analysis.observations_path)}, variants,
+    )
+    manifest_path = path.join(utils.task_dir(task_id), "experiment.json")
+    temporary_path = f"{manifest_path}.tmp"
+    with open(temporary_path, "w", encoding="utf-8") as output:
+        json.dump(manifest, output, ensure_ascii=False, indent=2, allow_nan=False)
+    os.replace(temporary_path, manifest_path)
+    completed = [item["video"] for item in variants.values() if item.get("status") == "completed"]
+    result = {
+        "videos": completed,
+        "script": shared_body,
+        "recap_experiment": {"manifest_path": manifest_path, "variants": {key.value: value for key, value in variants.items()}},
+        "cross_post_state": None, "cross_post_results": None, "cross_post_owner": None,
+    }
+    sm.state.update_task(task_id, state=const.TASK_STATE_COMPLETE, progress=100, **result)
+    return result
+
+
 def _run_pipeline(
     task_id,
     params: VideoParams,
@@ -1117,6 +1216,11 @@ def _run_pipeline(
             recap.enrich_recap_context(task_id, params)
         except ValueError as exc:
             return _mark_task_failed(task_id, "script", str(exc))
+        if params.recap_hook_experiment_enabled:
+            try:
+                return generate_recap_hook_experiment(task_id, params, stop_at)
+            except ValueError as exc:
+                return _mark_task_failed(task_id, "experiment", str(exc))
 
     # 1. Generate script
     video_script = generate_script(task_id, params)

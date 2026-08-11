@@ -5,6 +5,7 @@ import sys
 import tempfile
 from concurrent.futures import Future
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -12,7 +13,8 @@ from uuid import uuid4
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from app.services import task as tm
-from app.models.schema import MaterialInfo, VideoParams
+from app.models.schema import MaterialInfo, RecapHookStrategy, VideoParams
+from app.services import recap, recap_hooks
 from app.services.state import MemoryState, RedisState
 from app.utils import utils
 
@@ -110,6 +112,70 @@ class TestTaskService(unittest.TestCase):
             )
 
         self.assertEqual(combine_videos.call_args.kwargs["clip_speed"], 1.25)
+
+    def test_video_output_paths_use_strategy_stem_without_changing_default_names(self):
+        self.assertEqual(
+            tm._video_output_paths("task-id", 1, "hook-suspense"),
+            (
+                os.path.join(utils.task_dir("task-id"), "combined-hook-suspense.mp4"),
+                os.path.join(utils.task_dir("task-id"), "final-hook-suspense.mp4"),
+            ),
+        )
+        self.assertEqual(
+            tm._video_output_paths("task-id", 2, None),
+            (
+                os.path.join(utils.task_dir("task-id"), "combined-2.mp4"),
+                os.path.join(utils.task_dir("task-id"), "final-2.mp4"),
+            ),
+        )
+
+    def test_recap_hook_experiment_rejects_custom_audio(self):
+        params = VideoParams(
+            video_subject="test",
+            video_source="recap",
+            recap_hook_experiment_enabled=True,
+        )
+        params.custom_audio_file = "provided.mp3"
+
+        with self.assertRaisesRegex(ValueError, "custom audio"):
+            tm.generate_recap_hook_experiment("task-id", params, stop_at="video")
+
+    def test_recap_hook_experiment_creates_variants_without_cross_posting(self):
+        observation = recap_hooks.VisualObservation(
+            timestamp=10.0, evidence="argument", action="argue", expression="angry",
+            shot_type="medium", readability=5, suspense_score=5, conflict_score=5,
+            emotion_score=5,
+        )
+        candidates = {
+            strategy: recap_hooks.HookCandidate(strategy, index * 10.0, index * 10.0 + 3.0, observation)
+            for index, strategy in enumerate(RecapHookStrategy)
+        }
+        analysis = SimpleNamespace(
+            transcript=[{"text": "source dialogue"}], candidates=candidates,
+            unavailable={}, observations_path="visual-observations.json",
+        )
+        materials = {strategy: [f"{strategy.value}-hook.mp4", "body.mp4"] for strategy in RecapHookStrategy}
+        params = VideoParams(video_subject="test", video_source="recap", recap_hook_experiment_enabled=True)
+        with tempfile.TemporaryDirectory() as task_dir:
+            with (
+                patch.object(tm.utils, "task_dir", return_value=task_dir),
+                patch.object(recap, "analyze_hook_experiment", return_value=analysis),
+                patch.object(recap, "prepare_hook_variant_materials", return_value=materials),
+                patch.object(recap, "_get_first_source_path", return_value="source.mp4"),
+                patch.object(tm, "generate_script", return_value="shared body") as generate_script,
+                patch.object(tm.llm, "_generate_response", side_effect=["s hook", "c hook", "e hook"]),
+                patch.object(tm, "generate_audio", side_effect=[("s.mp3", 8, MagicMock()), ("c.mp3", 9, MagicMock()), ("e.mp3", 7, MagicMock())]),
+                patch.object(tm, "generate_subtitle", return_value="subtitle.srt"),
+                patch.object(tm, "generate_final_videos", side_effect=[(["s.mp4"], [], []), (["c.mp4"], [], []), (["e.mp4"], [], [])]),
+                patch.object(tm, "_schedule_cross_post") as schedule_cross_post,
+                patch.object(tm.sm.state, "update_task"),
+            ):
+                result = tm.generate_recap_hook_experiment("task-id", params, stop_at="video")
+        self.assertEqual(list(result["recap_experiment"]["variants"]), ["suspense", "conflict", "emotion"])
+        self.assertEqual(result["videos"], ["s.mp4", "c.mp4", "e.mp4"])
+        self.assertIsNone(result["cross_post_state"])
+        generate_script.assert_called_once()
+        schedule_cross_post.assert_not_called()
 
     def test_generate_final_videos_uses_generated_sonilo_music(self):
         """Sonilo 必须针对每条拼接后的视频生成配乐，并传给最终混音。"""
