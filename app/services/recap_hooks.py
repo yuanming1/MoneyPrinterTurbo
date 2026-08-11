@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import re
 import math
 from dataclasses import dataclass
 from enum import Enum
@@ -21,6 +22,9 @@ _OBSERVATION_FIELDS = (
     "suspense_score",
     "conflict_score",
     "emotion_score",
+)
+_TIMESTAMP_LABEL_PATTERN = re.compile(
+    r"t\s*=\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*s"
 )
 _SCORE_FIELDS = {
     RecapHookStrategy.suspense: "suspense_score",
@@ -66,11 +70,57 @@ class VisualObservationError(ValueError):
     """Raised when visual-analysis output is not a valid observation list."""
 
 
-def parse_visual_observations(response: str) -> list[VisualObservation]:
+def _unwrap_json_code_fence(response: object) -> object:
+    if not isinstance(response, str):
+        return response
+
+    lines = response.strip().splitlines()
+    if (
+        len(lines) >= 2
+        and lines[0].strip().startswith("```")
+        and lines[-1].strip() == "```"
+    ):
+        return "\n".join(lines[1:-1]).strip()
+    return response
+
+
+def _normalized_timestamp_value(value: object) -> object:
+    if not isinstance(value, str):
+        return value
+
+    text = value.strip()
+    match = _TIMESTAMP_LABEL_PATTERN.fullmatch(text)
+    if match:
+        text = match.group(1)
+    try:
+        return float(text)
+    except (TypeError, ValueError, OverflowError):
+        return value
+
+
+def _normalized_score_value(value: object) -> object:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        value = value.strip()
+    if not isinstance(value, (str, float)):
+        return value
+    try:
+        normalized = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return value
+    if math.isfinite(normalized) and normalized.is_integer():
+        return int(normalized)
+    return value
+
+
+def parse_visual_observations(
+    response: str, *, expected_timestamps=None
+) -> list[VisualObservation]:
     """Parse and validate the visual-analysis JSON array returned by a model."""
     try:
         payload = json.loads(
-            response,
+            _unwrap_json_code_fence(response),
             object_pairs_hook=_json_object_without_duplicate_keys,
             parse_constant=_reject_json_constant,
         )
@@ -81,6 +131,12 @@ def parse_visual_observations(response: str) -> list[VisualObservation]:
 
     if not isinstance(payload, list):
         raise VisualObservationError("visual observations response must be a JSON array")
+    if expected_timestamps is not None:
+        expected_timestamps = list(expected_timestamps)
+        if len(payload) != len(expected_timestamps):
+            raise VisualObservationError(
+                "visual observations must contain exactly one object per submitted frame"
+            )
 
     observations = []
     timestamps = set()
@@ -95,7 +151,11 @@ def parse_visual_observations(response: str) -> list[VisualObservation]:
             )
 
         timestamp = _finite_json_value(
-            item["timestamp"],
+            (
+                expected_timestamps[index]
+                if expected_timestamps is not None
+                else _normalized_timestamp_value(item["timestamp"])
+            ),
             f"{label} timestamp",
             error_type=VisualObservationError,
         )
@@ -110,12 +170,18 @@ def parse_visual_observations(response: str) -> list[VisualObservation]:
         timestamps.add(timestamp)
 
         text_values = {}
-        for field in ("evidence", "action", "expression", "shot_type"):
+        for field in ("evidence", "action", "expression"):
             text_values[field] = _normalized_text_value(
                 item[field],
                 f"{label} {field}",
                 error_type=VisualObservationError,
             )
+        shot_type = item["shot_type"]
+        text_values["shot_type"] = (
+            shot_type.strip()
+            if isinstance(shot_type, str) and shot_type.strip()
+            else "unknown"
+        )
 
         score_values = {}
         for field in (
@@ -124,7 +190,7 @@ def parse_visual_observations(response: str) -> list[VisualObservation]:
             "conflict_score",
             "emotion_score",
         ):
-            value = item[field]
+            value = _normalized_score_value(item[field])
             if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 5:
                 raise VisualObservationError(
                     f"{label} {field} must be an integer from 0 to 5"

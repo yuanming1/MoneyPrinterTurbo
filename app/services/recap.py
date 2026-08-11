@@ -170,14 +170,20 @@ def _transcribe_with_whisper(task_id, audio_path):
 _PTS_TIME_PATTERN = re.compile(
     r"pts_time:([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)"
 )
-_VISUAL_ANALYSIS_PROMPT = """Analyze the supplied recap source frames. For every
-frame, return exactly one JSON object in a JSON array. Each object must use the
-timestamp supplied with that frame and contain exactly these fields:
+_VISUAL_ANALYSIS_PROMPT = """Analyze the supplied recap source frames. Return one
+JSON object per frame in the same order as the supplied frames. Each object must
+contain exactly these fields:
 timestamp, evidence, action, expression, shot_type, readability,
 suspense_score, conflict_score, emotion_score.
 
 Use scores from 0 to 5. Describe only visible source evidence. Do not infer
-plot facts that are not visible in the supplied frame."""
+plot facts that are not visible in the supplied frame. Respond with the raw
+JSON array only: no Markdown code fence, explanation, or other text. The
+timestamp value must be a JSON number without quotes or units; for a frame
+labeled t=1.50s, use \"timestamp\": 1.50. The readability and score fields
+must be JSON integers from 0 to 5, without quotes or decimals. All text fields
+must be nonempty strings. For shot_type, use a label such as \"close-up\",
+\"medium shot\", \"wide shot\", or \"unknown\" when it cannot be determined."""
 
 
 def extract_analysis_frames(source_path, output_dir) -> list[FrameFile]:
@@ -346,7 +352,10 @@ def _analyze_visual_frame_batches(vision_config, frames) -> list[recap_hooks.Vis
             inputs.append(vision.FrameInput(frame.timestamp, image_bytes, "image/jpeg"))
 
         response = vision.analyze_frames(vision_config, _VISUAL_ANALYSIS_PROMPT, inputs)
-        batch_observations = recap_hooks.parse_visual_observations(response)
+        batch_observations = recap_hooks.parse_visual_observations(
+            response,
+            expected_timestamps=[frame.timestamp for frame in frame_batch],
+        )
         frame_timestamps = {frame.timestamp for frame in frame_batch}
         observation_timestamps = {
             observation.timestamp for observation in batch_observations
@@ -673,11 +682,17 @@ def prepare_hook_variant_materials(
         ]
 
     shared_clips_dir = task_path / "experiments" / "hook" / "shared-body" / "clips"
+    shared_body_clips = []
     if shared_body_ranges:
         shared_body_clips = _cut_clips_by_ranges(
             source_path, str(shared_clips_dir), ffmpeg_binary, shared_body_ranges
         )
-    else:
+    if not shared_body_clips:
+        if shared_body_ranges:
+            logger.warning(
+                "recap: matched shared-body ranges could not be cut; "
+                "using chronological fallback"
+            )
         latest_reserved_end = max((end for _, end in reserved_ranges), default=0.0)
         needed_segments = math.ceil(max_audio_duration / clip_duration) + 2
         fallback_ranges = _chronological_ranges_excluding(
@@ -899,6 +914,12 @@ def _append_chronological_ranges(
 
 def _cut_clips_by_ranges(source_path, output_dir, ffmpeg_binary, clip_ranges):
     """根据时间范围列表用 FFmpeg 流拷贝切割视频片段。"""
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+    except OSError as exc:
+        logger.warning(f"recap: could not create clip output directory: {exc}")
+        return []
+
     segments = []
     for idx, (start, end) in enumerate(clip_ranges):
         duration = end - start

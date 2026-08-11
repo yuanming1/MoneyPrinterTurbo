@@ -101,6 +101,77 @@ class TestVisualObservationParsing(unittest.TestCase):
         self.assertEqual(observations[0].evidence, "A letter is opened.")
         self.assertEqual(observations[0].readability, 4)
 
+    def test_parses_json_array_wrapped_in_a_markdown_code_fence(self):
+        response = "```json\n" + json.dumps([_observation_payload()]) + "\n```"
+
+        observations = parse_visual_observations(response)
+
+        self.assertEqual(len(observations), 1)
+        self.assertEqual(observations[0].timestamp, 5.0)
+
+    def test_normalizes_timestamp_labels_and_numeric_strings(self):
+        response = json.dumps(
+            [
+                _observation_payload(timestamp="t=8.00s"),
+                _observation_payload(timestamp="2.5"),
+            ]
+        )
+
+        observations = parse_visual_observations(response)
+
+        self.assertEqual([item.timestamp for item in observations], [2.5, 8.0])
+
+    def test_normalizes_equivalent_score_values(self):
+        response = json.dumps(
+            [
+                _observation_payload(
+                    readability="4",
+                    suspense_score=3.0,
+                    conflict_score="2.0",
+                    emotion_score="1e0",
+                )
+            ]
+        )
+
+        observation = parse_visual_observations(response)[0]
+
+        self.assertEqual(
+            (
+                observation.readability,
+                observation.suspense_score,
+                observation.conflict_score,
+                observation.emotion_score,
+            ),
+            (4, 3, 2, 1),
+        )
+
+    def test_uses_submitted_timestamps_when_provided(self):
+        response = json.dumps(
+            [
+                _observation_payload(timestamp="not-a-timestamp"),
+                _observation_payload(timestamp=None),
+            ]
+        )
+
+        observations = parse_visual_observations(
+            response, expected_timestamps=[8.0, 2.0]
+        )
+
+        self.assertEqual([item.timestamp for item in observations], [2.0, 8.0])
+
+    def test_defaults_a_blank_shot_type_to_unknown(self):
+        response = json.dumps([_observation_payload(shot_type="   ")])
+
+        observation = parse_visual_observations(response)[0]
+
+        self.assertEqual(observation.shot_type, "unknown")
+
+    def test_requires_one_response_object_per_submitted_frame(self):
+        response = json.dumps([_observation_payload()])
+
+        with self.assertRaisesRegex(VisualObservationError, "one object per submitted"):
+            parse_visual_observations(response, expected_timestamps=[0.0, 1.0])
+
     def test_rejects_malformed_or_invalid_observations_without_echoing_response(self):
         invalid_responses = [
             json.dumps(_observation_payload()),

@@ -51,7 +51,7 @@ from app.services import state as sm
 from app.services import task as tm
 from app.services import version_checker
 from app.utils.logging_utils import configure_terminal_logger
-from app.utils import utils
+from app.utils import file_security, utils
 
 st.set_page_config(
     page_title="MoneyPrinterTurbo",

@@ -223,7 +223,9 @@ class TestHookExperimentAnalysis(unittest.TestCase):
                                 return_value=[frame_type(0.0, frame_path)],
                             ):
                                 with patch.object(recap.vision, "analyze_frames", return_value="[]"):
-                                    with self.assertRaisesRegex(ValueError, "视觉观察"):
+                                    with self.assertRaisesRegex(
+                                        ValueError, "one object per submitted"
+                                    ):
                                         recap.analyze_hook_experiment("task-1", params)
 
     def test_rejects_a_batch_missing_a_submitted_frame_timestamp(self):
@@ -244,7 +246,7 @@ class TestHookExperimentAnalysis(unittest.TestCase):
                 "analyze_frames",
                 return_value=json.dumps([_observation_payload(0.0)]),
             ):
-                with self.assertRaisesRegex(ValueError, "恰好覆盖"):
+                with self.assertRaisesRegex(ValueError, "one object per submitted"):
                     recap._analyze_visual_frame_batches(MagicMock(), frames)
 
 
@@ -332,6 +334,40 @@ class TestHookVariantMaterials(unittest.TestCase):
         self.assertTrue(body_ranges)
         self.assertEqual(body_ranges[0][0], 7.0)
 
+    def test_falls_back_when_matched_body_ranges_cannot_be_cut(self):
+        candidate = _candidate(RecapHookStrategy.suspense, 4.0, 7.0, 5.5)
+        analysis = SimpleNamespace(candidates={RecapHookStrategy.suspense: candidate}, unavailable={})
+        params = VideoParams(video_subject="A recap")
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            body_ranges = []
+
+            def cut_clips(source, output, binary, ranges):
+                if "shared-body" in str(output):
+                    body_ranges.append(ranges)
+                    return [] if len(body_ranges) == 1 else ["body.mp4"]
+                return ["hook.mp4"]
+
+            with patch.object(recap.utils, "task_dir", return_value=temporary_directory):
+                with patch.object(recap, "_get_first_source_path", return_value="source.mp4"):
+                    with patch.object(recap.video_service, "get_ffmpeg_binary", return_value="ffmpeg"):
+                        with patch.object(recap, "_load_timeline", return_value=[]):
+                            with patch.object(recap, "_get_video_duration", return_value=30.0):
+                                with patch.object(
+                                    recap, "_match_script_to_video", return_value=[(12.0, 15.0)]
+                                ):
+                                    with patch.object(
+                                        recap, "_cut_clips_by_ranges", side_effect=cut_clips
+                                    ):
+                                        variants = recap.prepare_hook_variant_materials(
+                                            "task-1", params, analysis, "Shared body.", 10.0
+                                        )
+
+        self.assertEqual(variants[RecapHookStrategy.suspense], ["hook.mp4", "body.mp4"])
+        self.assertEqual(body_ranges[0], [(12.0, 15.0)])
+        self.assertTrue(body_ranges[1])
+        self.assertTrue(all(end <= 4.0 or start >= 7.0 for start, end in body_ranges[1]))
+
     def test_fallback_uses_earlier_unreserved_body_when_latest_hook_reaches_video_end(self):
         candidate = _candidate(RecapHookStrategy.suspense, 27.0, 30.0, 28.5)
         analysis = SimpleNamespace(candidates={RecapHookStrategy.suspense: candidate}, unavailable={})
@@ -388,6 +424,22 @@ class TestExcludedRecapMatches(unittest.TestCase):
             )
 
         self.assertEqual(ranges, [(1.0, 4.0), (9.0, 12.0)])
+
+
+class TestRecapClipCutting(unittest.TestCase):
+    def test_creates_nested_output_directory_before_cutting(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            output_dir = Path(temporary_directory) / "experiments" / "hook" / "clips"
+
+            def write_clip(command, **_kwargs):
+                Path(command[-1]).write_bytes(b"clip")
+
+            with patch.object(recap.subprocess, "run", side_effect=write_clip):
+                clips = recap._cut_clips_by_ranges(
+                    "source.mp4", str(output_dir), "ffmpeg", [(0.0, 3.0)]
+                )
+
+        self.assertEqual(clips, [str(output_dir / "clip_0000.mp4")])
 
 
 if __name__ == "__main__":
