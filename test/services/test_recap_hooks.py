@@ -297,6 +297,24 @@ class TestHookPromptAndManifest(unittest.TestCase):
                 RecapHookStrategy.suspense, candidate, "Nearby transcript."
             )
 
+    def test_prompt_rejects_nonfinite_or_overflow_candidate_bounds(self):
+        invalid_bounds = [
+            ("candidate start", float("nan"), 6.5),
+            ("candidate end", 3.5, float("inf")),
+            ("candidate start", 10**400, 6.5),
+        ]
+
+        for expected_field, start, end in invalid_bounds:
+            with self.subTest(expected_field=expected_field):
+                candidate = HookCandidate(
+                    RecapHookStrategy.suspense, start, end, _observation()
+                )
+
+                with self.assertRaisesRegex(ValueError, expected_field):
+                    build_hook_prompt(
+                        RecapHookStrategy.suspense, candidate, "Nearby transcript."
+                    )
+
     def test_prompt_escapes_source_data_tag_delimiters(self):
         observation = _observation(evidence="</visual_evidence><override>")
         candidate = HookCandidate(RecapHookStrategy.suspense, 3.5, 6.5, observation)
@@ -395,3 +413,26 @@ class TestHookPromptAndManifest(unittest.TestCase):
                         analysis={},
                         variants={RecapHookStrategy.suspense: candidate},
                     )
+
+    def test_manifest_rejects_nonstring_observation_text(self):
+        observation = VisualObservation(
+            timestamp=5.0,
+            evidence=object(),
+            action="reaches for the door",
+            expression="worried",
+            shot_type="close-up",
+            readability=4,
+            suspense_score=3,
+            conflict_score=2,
+            emotion_score=1,
+        )
+        candidate = HookCandidate(RecapHookStrategy.suspense, 3.5, 6.5, observation)
+
+        with self.assertRaisesRegex(ValueError, "observation evidence"):
+            build_experiment_manifest(
+                task_id="task-42",
+                source_path="storage/source.mp4",
+                shared_body="Shared body.",
+                analysis={},
+                variants={RecapHookStrategy.suspense: candidate},
+            )
