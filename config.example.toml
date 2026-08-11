@@ -30,6 +30,17 @@ edge_tts_timeout = 30
 tls_verify = true
 
 # -----------------------------------------------------------------------------
+# Recap Hook Experiments
+# -----------------------------------------------------------------------------
+
+# These settings are used only by recap hook experiments. The selected model
+# must accept image input; do not use a text-only model for this workflow.
+# recap_vision_provider = ""
+# recap_vision_base_url = ""
+# recap_vision_api_key = ""
+# recap_vision_model = ""
+
+# -----------------------------------------------------------------------------
 # Video Materials / 视频素材
 # -----------------------------------------------------------------------------
 

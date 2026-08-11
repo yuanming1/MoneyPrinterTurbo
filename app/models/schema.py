@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any, List, Literal, Optional, Union
 
 import pydantic
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.config import config
 
@@ -29,6 +29,12 @@ class VideoTransitionMode(str, Enum):
     slide_out = "SlideOut"
     zoom_in = "ZoomIn"
     zoom_out = "ZoomOut"
+
+
+class RecapHookStrategy(str, Enum):
+    suspense = "suspense"
+    conflict = "conflict"
+    emotion = "emotion"
 
 
 class VideoAspect(str, Enum):
@@ -86,6 +92,10 @@ class VideoParams(BaseModel):
     video_clip_speed: Optional[float] = 1.0
     match_materials_to_script: bool = False
     video_count: int = Field(default=1, ge=1)
+    recap_hook_experiment_enabled: bool = False
+    recap_hook_strategies: list[RecapHookStrategy] = Field(
+        default_factory=lambda: list(RecapHookStrategy)
+    )
 
     video_source: Optional[str] = "pexels"
     video_materials: Optional[List[MaterialInfo]] = (
@@ -121,6 +131,17 @@ class VideoParams(BaseModel):
     paragraph_number: int = Field(default=1, ge=1, le=10)
     video_script_prompt: str = Field(default="", max_length=2000)
     custom_system_prompt: str = Field(default="", max_length=8000)
+
+    @field_validator("recap_hook_strategies")
+    @classmethod
+    def validate_recap_hook_strategies(
+        cls, strategies: list[RecapHookStrategy]
+    ) -> list[RecapHookStrategy]:
+        if not strategies:
+            raise ValueError("select at least one recap hook strategy")
+        if len(strategies) != len(set(strategies)):
+            raise ValueError("recap hook strategies must not contain duplicate strategies")
+        return strategies
 
 
 class SubtitleRequest(BaseModel):
