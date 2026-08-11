@@ -200,8 +200,14 @@ class TestVisionAdapters(unittest.TestCase):
             model="gemini-vision-model",
         )
         provider_error = "gemini provider internal detail"
+        real_import = __import__
 
-        with patch("builtins.__import__", side_effect=ImportError(provider_error)):
+        def fail_gemini_imports(name, *args, **kwargs):
+            if name in {"google", "google.genai"}:
+                raise ImportError(provider_error)
+            return real_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=fail_gemini_imports):
             with self.assertRaisesRegex(
                 vision.VisionResponseError, "Gemini vision SDK is unavailable"
             ) as raised:
@@ -235,7 +241,7 @@ class TestVisionAdapters(unittest.TestCase):
 
         self.assertNotIn(provider_error, str(raised.exception))
 
-    def test_openai_adapter_rejects_empty_or_none_response_content(self):
+    def test_openai_adapter_rejects_empty_whitespace_or_none_response_content(self):
         config = vision.VisionConfig(
             provider="openai_compatible",
             api_key="test-key",
@@ -245,7 +251,11 @@ class TestVisionAdapters(unittest.TestCase):
         client = MagicMock()
 
         with patch.object(vision, "OpenAI", return_value=client):
-            for content in ("", None):
+            for content, message in (
+                ("", "empty text content"),
+                ("   ", "empty text content"),
+                (None, "invalid text content"),
+            ):
                 with self.subTest(content=content):
                     client.chat.completions.create.return_value = types.SimpleNamespace(
                         choices=[
@@ -254,10 +264,12 @@ class TestVisionAdapters(unittest.TestCase):
                             )
                         ]
                     )
-                    with self.assertRaises(vision.VisionResponseError):
+                    with self.assertRaisesRegex(
+                        vision.VisionResponseError, message
+                    ):
                         vision.analyze_frames(config, "Analyze.", self.frames)
 
-    def test_gemini_adapter_rejects_empty_or_none_response_content(self):
+    def test_gemini_adapter_rejects_empty_whitespace_or_none_response_content(self):
         config = vision.VisionConfig(
             provider="gemini",
             api_key="test-key",
@@ -277,12 +289,18 @@ class TestVisionAdapters(unittest.TestCase):
         with patch.dict(
             sys.modules, {"google": fake_google, "google.genai": fake_genai}
         ):
-            for content in ("", None):
+            for content, message in (
+                ("", "empty text content"),
+                ("   ", "empty text content"),
+                (None, "invalid text content"),
+            ):
                 with self.subTest(content=content):
                     client.models.generate_content.return_value = types.SimpleNamespace(
                         text=content
                     )
-                    with self.assertRaises(vision.VisionResponseError):
+                    with self.assertRaisesRegex(
+                        vision.VisionResponseError, message
+                    ):
                         vision.analyze_frames(config, "Analyze.", self.frames)
 
     def test_empty_frames_bypass_provider_calls(self):
