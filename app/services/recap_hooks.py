@@ -184,7 +184,7 @@ def select_hook_candidates(
         has_in_bounds_window = False
         for observation in ranked:
             start = max(0.0, observation.timestamp - 1.5)
-            end = min(duration, observation.timestamp + 1.5)
+            end = min(duration, start + 3.0)
             if end <= start:
                 continue
             has_in_bounds_window = True

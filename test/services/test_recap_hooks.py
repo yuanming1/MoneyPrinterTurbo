@@ -143,6 +143,22 @@ class TestHookCandidateSelection(unittest.TestCase):
         self.assertEqual(candidate.as_range(), (2.5, 5.5))
         self.assertEqual(unavailable, {})
 
+    def test_preserves_three_second_window_when_timestamp_is_near_start(self):
+        observations = [_observation(0.5, suspense_score=5)]
+
+        for duration, expected_range in ((60.0, (0.0, 3.0)), (2.0, (0.0, 2.0))):
+            with self.subTest(duration=duration):
+                candidates, unavailable = select_hook_candidates(
+                    observations,
+                    [RecapHookStrategy.suspense],
+                    video_duration=duration,
+                )
+
+                self.assertEqual(
+                    candidates[RecapHookStrategy.suspense].as_range(), expected_range
+                )
+                self.assertEqual(unavailable, {})
+
     def test_prevents_overlap_and_explains_unavailable_strategies(self):
         observations = [
             _observation(
