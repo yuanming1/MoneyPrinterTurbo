@@ -14,14 +14,37 @@ import math
 import os
 import re
 import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Sequence
 
 from loguru import logger
 from moviepy.video.io.VideoFileClip import VideoFileClip
 
 from app.config import config
-from app.models.schema import VideoConcatMode
+from app.models.schema import RecapHookStrategy, VideoConcatMode
 from app.services import video as video_service
+from app.services import recap_hooks, vision
 from app.utils import file_security, utils
+
+
+@dataclass(frozen=True)
+class FrameFile:
+    """One extracted JPEG frame and its source-video timestamp."""
+
+    timestamp: float
+    path: Path
+
+
+@dataclass
+class RecapHookAnalysis:
+    """Source-grounded inputs and selected openings for recap hook variants."""
+
+    transcript: list[dict]
+    observations: list[recap_hooks.VisualObservation]
+    candidates: dict[RecapHookStrategy, recap_hooks.HookCandidate]
+    unavailable: dict[RecapHookStrategy, str]
+    observations_path: Path
 
 
 # ============================================================================
@@ -138,6 +161,229 @@ def _transcribe_with_whisper(task_id, audio_path):
     except Exception as exc:
         logger.warning(f"recap: transcription failed: {exc}")
         return []
+
+
+# ============================================================================
+# Hook experiment analysis -- source frames + configured vision provider
+# ============================================================================
+
+_PTS_TIME_PATTERN = re.compile(
+    r"pts_time:([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)"
+)
+_VISUAL_ANALYSIS_PROMPT = """Analyze the supplied recap source frames. For every
+frame, return exactly one JSON object in a JSON array. Each object must use the
+timestamp supplied with that frame and contain exactly these fields:
+timestamp, evidence, action, expression, shot_type, readability,
+suspense_score, conflict_score, emotion_score.
+
+Use scores from 0 to 5. Describe only visible source evidence. Do not infer
+plot facts that are not visible in the supplied frame."""
+
+
+def extract_analysis_frames(source_path, output_dir) -> list[FrameFile]:
+    """Extract regular and scene-change JPEG samples for visual hook analysis."""
+    frame_dir = Path(output_dir)
+    frame_dir.mkdir(parents=True, exist_ok=True)
+    _remove_previous_analysis_frames(frame_dir)
+    ffmpeg_binary = video_service.get_ffmpeg_binary()
+
+    regular_template = frame_dir / "regular_%06d.jpg"
+    regular_command = [
+        ffmpeg_binary, "-y",
+        "-i", str(source_path),
+        "-vf", "fps=1/2,showinfo,scale=640:-2",
+        "-q:v", "2",
+        str(regular_template),
+    ]
+    try:
+        regular_result = subprocess.run(
+            regular_command, check=True, capture_output=True, timeout=300
+        )
+    except (OSError, subprocess.SubprocessError):
+        logger.warning("recap: regular analysis-frame extraction failed")
+        return []
+
+    regular_frames = _regular_frame_files(frame_dir, regular_result.stderr)
+    scene_template = frame_dir / "scene_%06d.jpg"
+    scene_command = [
+        ffmpeg_binary, "-y",
+        "-i", str(source_path),
+        "-vf", "select='gt(scene,0.40)',showinfo,scale=640:-2",
+        "-vsync", "vfr",
+        "-q:v", "2",
+        str(scene_template),
+    ]
+    try:
+        scene_result = subprocess.run(
+            scene_command, check=True, capture_output=True, timeout=300
+        )
+    except (OSError, subprocess.SubprocessError):
+        logger.warning("recap: scene-change analysis-frame extraction failed")
+        return regular_frames
+
+    scene_paths = _nonempty_jpegs(frame_dir, "scene_*.jpg")
+    scene_times = _showinfo_timestamps(scene_result.stderr)
+    if len(scene_paths) != len(scene_times):
+        raise ValueError(
+            "FFmpeg scene-change frame metadata did not match extracted frames."
+        )
+
+    scene_frames = [
+        FrameFile(timestamp=timestamp, path=path)
+        for timestamp, path in zip(scene_times, scene_paths)
+        if all(abs(timestamp - regular.timestamp) >= 0.75 for regular in regular_frames)
+    ]
+    return sorted(regular_frames + scene_frames, key=lambda frame: frame.timestamp)
+
+
+def analyze_hook_experiment(task_id, params) -> RecapHookAnalysis:
+    """Create source-grounded hook candidates from transcript and video frames."""
+    source_path = _get_first_source_path(params)
+    if not source_path:
+        raise ValueError("无法定位二创实验的源视频文件")
+
+    # Validate credentials before audio extraction or Whisper model work begins.
+    vision_config = vision.load_recap_vision_config()
+    task_path = Path(utils.task_dir(task_id))
+    analysis_dir = task_path / "recap-analysis"
+    timeline = _load_timeline(str(task_path))
+    if not timeline:
+        timeline = analyze_source_video(task_id, source_path)
+    if not timeline:
+        raise ValueError("二创实验需要可用的源视频台词转写")
+
+    _write_recap_json(analysis_dir / "transcript-timeline.json", timeline, "timeline")
+    frames = extract_analysis_frames(source_path, analysis_dir / "frames")
+    if not frames:
+        raise ValueError("二创实验未能提取可供视觉分析的视频帧")
+
+    observations = _analyze_visual_frame_batches(vision_config, frames)
+    if not observations:
+        raise ValueError("二创实验没有得到可用的视觉观察结果")
+
+    observations_path = analysis_dir / "visual-observations.json"
+    _write_recap_json(
+        observations_path,
+        [_visual_observation_json(observation) for observation in observations],
+        "visual observations",
+    )
+    duration = _get_video_duration(source_path)
+    if duration <= 0:
+        raise ValueError("无法读取二创实验源视频的时长")
+    candidates, unavailable = recap_hooks.select_hook_candidates(
+        observations, params.recap_hook_strategies, duration
+    )
+    return RecapHookAnalysis(
+        transcript=timeline,
+        observations=observations,
+        candidates=candidates,
+        unavailable=unavailable,
+        observations_path=observations_path,
+    )
+
+
+def _remove_previous_analysis_frames(frame_dir: Path):
+    for pattern in ("regular_*.jpg", "scene_*.jpg"):
+        for path in frame_dir.glob(pattern):
+            try:
+                path.unlink()
+            except OSError:
+                logger.warning("recap: could not clear a previous analysis frame")
+
+
+def _regular_frame_files(frame_dir: Path, stderr) -> list[FrameFile]:
+    paths = _nonempty_jpegs(frame_dir, "regular_*.jpg")
+    timestamps = _showinfo_timestamps(stderr)
+    if len(paths) != len(timestamps):
+        raise ValueError(
+            "FFmpeg regular frame metadata did not match extracted frames."
+        )
+    return [
+        FrameFile(timestamp=timestamp, path=path)
+        for timestamp, path in zip(timestamps, paths)
+    ]
+
+
+def _nonempty_jpegs(frame_dir: Path, pattern: str) -> list[Path]:
+    return sorted(
+        path for path in frame_dir.glob(pattern)
+        if path.is_file() and path.stat().st_size > 0
+    )
+
+
+def _showinfo_timestamps(stderr) -> list[float]:
+    if isinstance(stderr, bytes):
+        text = stderr.decode("utf-8", errors="replace")
+    elif isinstance(stderr, str):
+        text = stderr
+    else:
+        return []
+
+    timestamps = []
+    for match in _PTS_TIME_PATTERN.finditer(text):
+        try:
+            timestamp = float(match.group(1))
+        except (TypeError, ValueError, OverflowError):
+            continue
+        if math.isfinite(timestamp) and timestamp >= 0:
+            timestamps.append(timestamp)
+    return timestamps
+
+
+def _analyze_visual_frame_batches(vision_config, frames) -> list[recap_hooks.VisualObservation]:
+    observations = []
+    observed_timestamps = set()
+    for first_index in range(0, len(frames), 8):
+        frame_batch = frames[first_index:first_index + 8]
+        inputs = []
+        for frame in frame_batch:
+            try:
+                image_bytes = frame.path.read_bytes()
+            except OSError:
+                raise ValueError("无法读取用于二创实验的视频帧") from None
+            if not image_bytes:
+                raise ValueError("二创实验的视频帧为空")
+            inputs.append(vision.FrameInput(frame.timestamp, image_bytes, "image/jpeg"))
+
+        response = vision.analyze_frames(vision_config, _VISUAL_ANALYSIS_PROMPT, inputs)
+        batch_observations = recap_hooks.parse_visual_observations(response)
+        frame_timestamps = {frame.timestamp for frame in frame_batch}
+        observation_timestamps = {
+            observation.timestamp for observation in batch_observations
+        }
+        if observation_timestamps != frame_timestamps:
+            raise ValueError(
+                "视觉观察结果必须恰好覆盖提交的视频帧时间戳"
+            )
+        for observation in batch_observations:
+            if observation.timestamp in observed_timestamps:
+                raise ValueError("视觉观察结果重复了视频帧时间戳")
+            observed_timestamps.add(observation.timestamp)
+            observations.append(observation)
+    return sorted(observations, key=lambda observation: observation.timestamp)
+
+
+def _write_recap_json(path: Path, payload, label: str):
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as output:
+            json.dump(payload, output, ensure_ascii=False, indent=2, allow_nan=False)
+    except (OSError, TypeError, ValueError, OverflowError):
+        raise ValueError(f"无法保存二创实验{label}数据") from None
+
+
+def _visual_observation_json(observation: recap_hooks.VisualObservation) -> dict:
+    return {
+        "timestamp": observation.timestamp,
+        "evidence": observation.evidence,
+        "action": observation.action,
+        "expression": observation.expression,
+        "shot_type": observation.shot_type,
+        "readability": observation.readability,
+        "suspense_score": observation.suspense_score,
+        "conflict_score": observation.conflict_score,
+        "emotion_score": observation.emotion_score,
+    }
 
 
 # ============================================================================
@@ -389,7 +635,88 @@ def prepare_recap_materials(task_id, params, audio_duration):
     return segment_paths[:needed_segments]
 
 
-def _match_script_to_video(script_text, timeline, clip_duration, video_duration):
+def prepare_hook_variant_materials(
+    task_id, params, analysis: RecapHookAnalysis, shared_body, max_audio_duration
+) -> dict[RecapHookStrategy, list[str]]:
+    """Cut one shared body and strategy-specific source-grounded hook openings."""
+    if not isinstance(shared_body, str) or not shared_body.strip():
+        raise ValueError("二创实验需要非空的共享解说正文")
+
+    source_path = _get_first_source_path(params)
+    if not source_path:
+        raise ValueError("无法定位二创实验的源视频文件")
+
+    task_path = Path(utils.task_dir(task_id))
+    ffmpeg_binary = video_service.get_ffmpeg_binary()
+    clip_duration = params.video_clip_duration or 5
+    video_duration = _get_video_duration(source_path)
+    if video_duration <= 0:
+        raise ValueError("无法读取二创实验源视频的时长")
+
+    selected = sorted(
+        analysis.candidates.items(),
+        key=lambda item: (item[1].start, item[1].end, item[0].value),
+    )
+    reserved_ranges = [candidate.as_range() for _, candidate in selected]
+    timeline = _load_timeline(str(task_path))
+    shared_body_ranges = _match_script_to_video(
+        shared_body,
+        timeline,
+        clip_duration,
+        video_duration,
+        excluded_ranges=reserved_ranges,
+    )
+    if shared_body_ranges:
+        shared_body_ranges = [
+            time_range for time_range in shared_body_ranges
+            if not _range_overlaps_any(time_range, reserved_ranges)
+        ]
+
+    shared_clips_dir = task_path / "experiments" / "hook" / "shared-body" / "clips"
+    if shared_body_ranges:
+        shared_body_clips = _cut_clips_by_ranges(
+            source_path, str(shared_clips_dir), ffmpeg_binary, shared_body_ranges
+        )
+    else:
+        latest_reserved_end = max((end for _, end in reserved_ranges), default=0.0)
+        needed_segments = math.ceil(max_audio_duration / clip_duration) + 2
+        fallback_ranges = _chronological_ranges_excluding(
+            video_duration,
+            clip_duration,
+            needed_segments,
+            reserved_ranges,
+            start_time=latest_reserved_end,
+        )
+        shared_body_clips = _cut_clips_by_ranges(
+            source_path, str(shared_clips_dir), ffmpeg_binary, fallback_ranges
+        )
+
+    if not shared_body_clips:
+        raise ValueError("无法为二创实验切出共享正文片段")
+
+    variants = {}
+    for strategy, candidate in selected:
+        hook_clips_dir = task_path / "experiments" / "hook" / strategy.value / "clips"
+        hook_clips = _cut_clips_by_ranges(
+            source_path,
+            str(hook_clips_dir),
+            ffmpeg_binary,
+            [candidate.as_range()],
+        )
+        if not hook_clips:
+            logger.warning(f"recap: no hook clips cut for {strategy.value} strategy")
+            continue
+        variants[strategy] = hook_clips + shared_body_clips
+    return variants
+
+
+def _match_script_to_video(
+    script_text,
+    timeline,
+    clip_duration,
+    video_duration,
+    excluded_ranges: Sequence[tuple[float, float]] = (),
+):
     """
     调用 LLM 将解说文案段落映射到视频中最相关的时间段。
 
@@ -426,11 +753,16 @@ def _match_script_to_video(script_text, timeline, clip_duration, video_duration)
         response = llm._generate_response(prompt)
         ranges = _parse_match_response(response, clip_duration, video_duration)
         if ranges:
+            ranges = [
+                candidate for candidate in ranges
+                if not _range_overlaps_any(candidate, excluded_ranges)
+            ]
+        if ranges:
             logger.info(
                 f"recap: LLM matched {len(ranges)} clip ranges: {ranges[:3]}..."
             )
             return ranges
-        logger.warning("recap: LLM returned no valid ranges")
+        logger.warning("recap: LLM returned no valid non-excluded ranges")
         return None
     except Exception as exc:
         logger.warning(f"recap: LLM clip matching failed: {exc}")
@@ -478,6 +810,91 @@ def _parse_match_response(response, clip_duration, video_duration):
             ranges.append((start, end))
 
     return ranges if ranges else None
+
+
+def _range_overlaps_any(
+    candidate: tuple[float, float], excluded_ranges: Sequence[tuple[float, float]]
+) -> bool:
+    candidate_start, candidate_end = candidate
+    for excluded_start, excluded_end in excluded_ranges:
+        if candidate_start < excluded_end and excluded_start < candidate_end:
+            return True
+    return False
+
+
+def _chronological_ranges_excluding(
+    video_duration: float,
+    clip_duration: float,
+    max_segments: int,
+    excluded_ranges: Sequence[tuple[float, float]],
+    start_time: float = 0.0,
+) -> list[tuple[float, float]]:
+    """Build chronological clip ranges, preferring after start_time then wrapping."""
+    if video_duration <= 0 or clip_duration <= 0 or max_segments <= 0:
+        return []
+
+    normalized_exclusions = []
+    for excluded_start, excluded_end in excluded_ranges:
+        start = max(0.0, min(video_duration, excluded_start))
+        end = max(0.0, min(video_duration, excluded_end))
+        if end > start:
+            normalized_exclusions.append((start, end))
+    normalized_exclusions.sort()
+
+    merged_exclusions = []
+    for start, end in normalized_exclusions:
+        if merged_exclusions and start <= merged_exclusions[-1][1]:
+            merged_exclusions[-1] = (merged_exclusions[-1][0], max(end, merged_exclusions[-1][1]))
+        else:
+            merged_exclusions.append((start, end))
+
+    preferred_start = max(0.0, min(video_duration, start_time))
+    windows = [(preferred_start, video_duration)]
+    if preferred_start > 0:
+        windows.append((0.0, preferred_start))
+
+    ranges = []
+    for window_start, window_end in windows:
+        cursor = window_start
+        for excluded_start, excluded_end in merged_exclusions:
+            if excluded_end <= cursor:
+                continue
+            if excluded_start >= window_end:
+                break
+            if cursor < excluded_start:
+                cursor = _append_chronological_ranges(
+                    ranges,
+                    cursor,
+                    min(excluded_start, window_end),
+                    clip_duration,
+                    max_segments,
+                )
+            cursor = max(cursor, excluded_end)
+            if len(ranges) >= max_segments or cursor >= window_end:
+                break
+        if len(ranges) >= max_segments:
+            break
+        if cursor < window_end:
+            _append_chronological_ranges(
+                ranges, cursor, window_end, clip_duration, max_segments
+            )
+        if len(ranges) >= max_segments:
+            break
+    return ranges
+
+
+def _append_chronological_ranges(
+    ranges: list[tuple[float, float]],
+    start: float,
+    end: float,
+    clip_duration: float,
+    max_segments: int,
+) -> float:
+    while start < end and len(ranges) < max_segments:
+        next_end = min(start + clip_duration, end)
+        ranges.append((start, next_end))
+        start = next_end
+    return start
 
 
 def _cut_clips_by_ranges(source_path, output_dir, ffmpeg_binary, clip_ranges):
@@ -557,7 +974,7 @@ def _load_script_text(task_dir):
 
 def _split_video_chronologically(
     source_path, output_dir, ffmpeg_binary,
-    segment_duration, max_segments, start_index=0,
+    segment_duration, max_segments, start_index=0, start_time=0.0,
 ):
     """
     顺序切片回退方案：从视频开头按固定时长逐段切割。
@@ -568,7 +985,7 @@ def _split_video_chronologically(
         return []
 
     segments = []
-    start_time = 0.0
+    start_time = max(0.0, float(start_time))
     idx = start_index
 
     while start_time < duration and len(segments) < max_segments:
